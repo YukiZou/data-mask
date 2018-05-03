@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ecnu.dao.UserDao">
+
+    <resultMap id="userFileResultMap" type="com.ecnu.model.UserFile">
+        <id  column="id" property="id" />
+        <result column="user_id" property="userId" />
+        <result column="table_name" property="tableName" />
+        <result column="table_fields" property="tableFields" />
+    </resultMap>
+
+    <insert id="insertUserFile" parameterType="com.ecnu.model.UserFile" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_file(user_id, table_name, table_fields)
+        VALUES (#{userId}, #{tableName}, #{tableFields})
+    </insert>
+
+    <!-- 模糊查找 -->
+    <select id="findUserFiles" parameterType="com.ecnu.model.UserFile" resultMap="userFileResultMap">
+        SELECT *
+        FROM user_file
+        <where>
+            <if test="id!=null and id>0">
+                id=#{id}
+            </if>
+            <if test="userId!=null and userId>0">
+                AND user_id=#{userId}
+            </if>
+            <if test="tableName!=null and tableName!=''">
+                AND table_name LIKE #{tableName}
+            </if>
+            <if test="tableFields!=null and tableFields!=''">
+                AND table_fields LIKE #{tableFields}
+            </if>
+        </where>
+    </select>
+
+</mapper>

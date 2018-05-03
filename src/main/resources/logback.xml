@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configuration debug="true">
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <Target>System.out</Target>
+        <Encoding>UTF-8</Encoding>
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    <appender name="logfile"
+              class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <Encoding>UTF-8</Encoding>
+        <encoder>
+            <pattern>%d %p [%t] [%c]:%L - %m%n</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>DEBUG</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>log/%d{yyyy-MM-dd-HH'.log'}</fileNamePattern>
+        </rollingPolicy>
+    </appender>
+    <logger name="org.springframework" level="WARN" />
+    <logger name="org.springframework.remoting" level="WARN" />
+    <logger name="org.springframework.scheduling.quartz" level="WARN" />
+    <logger name="org.springframework.data.jpa" level="DEBUG" />
+    <logger name="ch.qos.logback" level="WARN" />
+    <logger name="com.ecnu.dao" level="DEBUG"/>
+    <logger name="org.mongodb.driver.cluster" level="ERROR" />
+    <logger name="org.apache.kafka.clients.consumer" level="off" />
+
+    <!--开启debug日志模式，在控制台打印日志-->
+    <root level="debug">
+        <appender-ref ref="STDOUT" />
+        <appender-ref ref="logfile" />
+    </root>
+</configuration>
