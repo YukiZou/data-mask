@@ -11,7 +11,8 @@ public enum StatusEnum {
     NO_USER_FAIL("noUserFail"),
     PASSWORD_ERROR("passwordError"),
     DUPLICATE__FAIL("duplicateFail"),
-    INPUT_FAIL("inputFail");
+    INPUT_FAIL("inputFail"),
+    NO_MASK_CONFIG("noMaskConfig");
 
 
     private String status;

@@ -23,22 +23,26 @@ public class UserFileServiceImpl implements UserFileService {
      * 新增 user_file 表记录
      * 前置条件： userId是当前登录用户ID，tableName不为空且唯一，tableFields不为空且是,分隔的字符串。
      * tableName 唯一性在调用这个服务之前确保。
-     * @param userId
-     * @param tableName
-     * @param tableFields
-     * @return <= 0 代表新增出错。
+     * @param userId 当前会话用户的ID
+     * @param tableName 生成的唯一的将要存储脱敏后数据的表名
+     * @param fileName 原始文件名（不包含后缀）
+     * @param tableFields 表的字段，用,分隔
+     * @param fields 原始文件中的标题行标题，导出的时候用到
+     * @return <= 0 代表新增出错，返回新增的记录的id
      */
     @Override
-    public int addUserFile(int userId, String tableName, String tableFields) {
-        Boolean isNull = (tableName == null || "".equals(tableName)
-                            || tableFields == null || "".equals(tableFields));
+    public int addUserFile(int userId, String tableName, String fileName, String tableFields, String fields) {
+        Boolean isNull = (tableName == null || "".equals(tableName) ||
+                fileName == null || "".equals(fileName) ||
+                tableFields == null || "".equals(tableFields) ||
+                fields == null || "".equals(fields));
         if (isNull) {
-            log.error("tableName 或 tableFields 字段为空。");
+            log.error("输入字段为空。");
             return 0;
         }
-
-        UserFile userFile = new UserFile(userId, tableName, tableFields);
-        return userFileDao.insertUserFile(userFile);
+        UserFile userFile = new UserFile(userId, tableName, fileName, tableFields, fields);
+        userFileDao.insertUserFile(userFile);
+        return userFile.getId();
     }
 
     /**
@@ -52,7 +56,11 @@ public class UserFileServiceImpl implements UserFileService {
         UserFile userFile = new UserFile();
         userFile.setTableName(tableName);
         List<UserFile> userFiles = userFileDao.findUserFiles(userFile);
-        return userFiles.get(0);
+        if (userFiles == null || userFiles.size() == 0) {
+            return null;
+        } else {
+            return userFiles.get(0);
+        }
     }
 
     /**
@@ -66,5 +74,22 @@ public class UserFileServiceImpl implements UserFileService {
         userFile.setUserId(userId);
         List<UserFile> userFiles = userFileDao.findUserFiles(userFile);
         return userFiles;
+    }
+
+    /**
+     * 根据id查找UserFile记录
+     * @param id userFile的 id
+     * @return userFile null 没有找到
+     */
+    @Override
+    public UserFile queryUserFileById(int id) {
+        UserFile userFile = new UserFile();
+        userFile.setId(id);
+        List<UserFile> userFiles = userFileDao.findUserFiles(userFile);
+        if (userFiles == null || userFiles.size() == 0) {
+            return null;
+        } else {
+            return userFiles.get(0);
+        }
     }
 }

@@ -3,7 +3,6 @@ package com.ecnu.utils.enums;
 /**
  * @author zou yuanyuan
  */
-
 public enum MaskMethodEnum {
     CAESAR_ENCRYPTION(1, "可逆置换-凯撒"),
     RAIL_FENCE_ENCRYPTION(2, "可逆置换-栅栏"),
@@ -13,7 +12,7 @@ public enum MaskMethodEnum {
     RSA_ENCRYPTION(6, "RSA算法加密"),
     FORMAT_PRESERVING_ENCRYPTION(7, "保形加密"),
     HOMOMORPHISM_ENCRYPTION(8, "同态加密"),
-    ANONYMITY_ENCRYPTION(9, "匿名");
+    ANONYMITY_ENCRYPTION(9, "k匿名");
 
     private  int value;
     private String desc;
@@ -24,6 +23,11 @@ public enum MaskMethodEnum {
     MaskMethodEnum(int value, String desc) {
         this.value = value;
         this.desc = desc;
+    }
+
+    public static Boolean needParameterMethod(MaskMethodEnum maskMethodEnum) {
+        int value = maskMethodEnum.getValue();
+        return (value == 1 || value == 2 || value == 4 || value == 9);
     }
 
     /**

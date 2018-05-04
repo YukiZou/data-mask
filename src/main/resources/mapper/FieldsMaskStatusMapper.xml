@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ecnu.dao.FieldsMaskStatusDao">
+
+    <resultMap id="fieldsMaskStatusMap" type="com.ecnu.model.FieldsMaskStatus">
+        <id  column="id" property="id" />
+        <result column="user_file_id" property="userFileId" />
+        <result column="select_fields" property="selectFields" />
+        <result column="mask_status" property="maskStatus" />
+    </resultMap>
+
+    <insert id="insertRecord" parameterType="com.ecnu.model.FieldsMaskStatus" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO fields_mask_status(user_file_id, select_fields, mask_status)
+        VALUES (#{userFileId}, #{selectFields}, #{maskStatus})
+    </insert>
+
+    <update id="updateRecord" parameterType="com.ecnu.model.FieldsMaskStatus">
+        UPDATE fields_mask_status
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="selectFields!=null and selectFields!=''">
+                select_fields=#{selectFields},
+            </if>
+            <if test="maskStatus!=null and maskStatus!=''">
+                mask_status=#{maskStatus},
+            </if>
+        </trim>
+        WHERE id=#{id}
+    </update>
+
+    <!-- 模糊查找 -->
+    <select id="findFieldsMaskStatus" parameterType="com.ecnu.model.FieldsMaskStatus" resultMap="fieldsMaskStatusMap">
+        SELECT *
+        FROM fields_mask_status
+        <where>
+            <if test="id!=null and id>0">
+                id=#{id}
+            </if>
+            <if test="userFileId!=null and userFileId>0">
+                AND user_file_id=#{userFileId}
+            </if>
+            <if test="selectFields!=null and selectFields!=''">
+                AND select_fields LIKE #{selectFields}
+            </if>
+            <if test="maskStatus!=null and maskStatus!=''">
+                AND mask_status LIKE #{maskStatus}
+            </if>
+        </where>
+    </select>
+
+</mapper>

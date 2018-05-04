@@ -23,7 +23,7 @@ public class TxtUtil {
             InputStreamReader reader = new InputStreamReader(inputStream, "UTF-8");
             BufferedReader bufferedReader = new BufferedReader(reader);
             //存储txt中的原始数据。
-            List<String[]> rowList = new ArrayList<String[]>();
+            List<String[]> rowList = new ArrayList<>();
 
             String line = null;
             while ((line = bufferedReader.readLine()) != null) {

@@ -21,6 +21,8 @@ public class FileUploadVO implements Serializable {
      */
     private List<String> maskMethods;
 
+    private List<String[]> subOriginDataList;
+
     public FileUploadVO() {
 
     }
@@ -29,9 +31,10 @@ public class FileUploadVO implements Serializable {
         this.status = statusEnum.getStatus();
     }
 
-    public FileUploadVO(StatusEnum statusEnum, List<String> fields, List<String > maskMethods) {
+    public FileUploadVO(StatusEnum statusEnum, List<String> fields, List<String> maskMethods, List<String[]> subOriginDataList) {
         this.status = statusEnum.getStatus();
         this.fields = fields;
         this.maskMethods = maskMethods;
+        this.subOriginDataList = subOriginDataList;
     }
 }

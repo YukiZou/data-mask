@@ -72,7 +72,7 @@ public class POIExcelUtil {
      */
     private static String getCellValue(Cell cell) {
         String cellValue = "";
-        if (cellValue == null) {
+        if (cell == null) {
             return cellValue;
         }
         // 把数字当成String来读，防止1读成1.0

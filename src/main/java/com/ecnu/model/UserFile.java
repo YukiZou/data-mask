@@ -19,6 +19,11 @@ public class UserFile implements Serializable{
     private String tableName;
 
     /**
+     * 上传的文件的文件名（不包括文件后缀名）
+     */
+    private String fileName;
+
+    /**
      * 指定表的字段字符串，多个字段用,分隔，存储成一个字符串。
      */
     private String tableFields;
@@ -32,15 +37,10 @@ public class UserFile implements Serializable{
 
     }
 
-    public UserFile (int userId, String tableName, String tableFields) {
+    public UserFile (int userId, String tableName, String fileName, String tableFields, String fields) {
         this.userId = userId;
         this.tableName = tableName;
-        this.tableFields = tableFields;
-    }
-
-    public UserFile (int userId, String tableName, String tableFields, String fields) {
-        this.userId = userId;
-        this.tableName = tableName;
+        this.fileName = fileName;
         this.tableFields = tableFields;
         this.fields = fields;
     }

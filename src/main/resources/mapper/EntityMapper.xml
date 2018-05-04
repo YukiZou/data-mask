@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ecnu.dao.EntityDao">
+    <update id="createTable" statementType="STATEMENT">
+        CREATE TABLE ${tableName} (
+        id int(11) NOT NULL AUTO_INCREMENT,
+        <foreach collection="tableFields" index="index" item="tableField">
+            ${tableField} VARCHAR(255) DEFAULT NULL,
+        </foreach>
+        PRIMARY KEY (id)
+        )
+    </update>
+
+    <insert id="insertRecord" statementType="STATEMENT">
+        INSERT INTO ${tableName}(
+        <trim suffixOverrides=",">
+            <foreach collection="tableFields" item="tableField">
+                ${tableField},
+            </foreach>
+        </trim>
+        )
+        VALUES(
+        <trim suffixOverrides=",">
+            <foreach collection="record" item="rec">
+                "${rec}",
+            </foreach>
+        </trim>
+        )
+    </insert>
+
+    <select id="getAllRecords" statementType="STATEMENT" resultType="map">
+        SELECT
+        <trim suffixOverrides=",">
+            <foreach collection="tableFields" item="tableField">
+                ${tableField},
+            </foreach>
+        </trim>
+        FROM ${tableName}
+    </select>
+</mapper>

@@ -2,18 +2,20 @@
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.ecnu.dao.UserDao">
+<mapper namespace="com.ecnu.dao.UserFileDao">
 
     <resultMap id="userFileResultMap" type="com.ecnu.model.UserFile">
         <id  column="id" property="id" />
         <result column="user_id" property="userId" />
         <result column="table_name" property="tableName" />
+        <result column="file_name" property="fileName" />
         <result column="table_fields" property="tableFields" />
+        <result column="fields" property="fields" />
     </resultMap>
 
     <insert id="insertUserFile" parameterType="com.ecnu.model.UserFile" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO user_file(user_id, table_name, table_fields)
-        VALUES (#{userId}, #{tableName}, #{tableFields})
+        INSERT INTO user_file(user_id, table_name, file_name, table_fields, fields)
+        VALUES (#{userId}, #{tableName}, #{fileName}, #{tableFields}, #{fields})
     </insert>
 
     <!-- 模糊查找 -->
@@ -30,8 +32,14 @@
             <if test="tableName!=null and tableName!=''">
                 AND table_name LIKE #{tableName}
             </if>
+            <if test="fileName!=null and fileName!=''">
+                AND file_name LIKE #{fileName}
+            </if>
             <if test="tableFields!=null and tableFields!=''">
                 AND table_fields LIKE #{tableFields}
+            </if>
+            <if test="fields!=null and fields!=''">
+                AND fields LIKE #{fields}
             </if>
         </where>
     </select>
