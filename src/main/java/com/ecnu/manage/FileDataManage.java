@@ -1,6 +1,7 @@
 package com.ecnu.manage;
 
 import com.ecnu.model.UserFile;
+import com.ecnu.service.EntityService;
 import com.ecnu.service.UserFileService;
 import com.ecnu.utils.io.CsvUtil;
 import com.ecnu.utils.io.POIExcelUtil;
@@ -12,9 +13,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 /**
@@ -29,9 +32,13 @@ public class FileDataManage {
     private final static String CSV = "csv";
     private final static String XLS = "xls";
     private final static String XLSX = "xlsx";
+    private final static String SUB_FILE_NAME = "MaskedData";
 
     @Autowired
     private UserFileService userFileService;
+
+    @Autowired
+    private EntityService entityService;
 
     /**
      * 解析到文件中的待脱敏数据
@@ -109,6 +116,71 @@ public class FileDataManage {
     }
 
     /**
+     * 根据表名和字段名，查找脱敏后的所有数据。
+     * @param tableName
+     * @param tableFields
+     * @return
+     */
+    public List<String[]> queryMaskedData(String tableName, List<String> tableFields) {
+        List<Map> maskedDataMap = entityService.getAllRecords(tableName);
+        //因为Map中顺序和field顺序不一样，所以要通过key值来找对应的value并存入String[]中
+        List<String[]> maskedData = new ArrayList<>();
+        for (Map row : maskedDataMap) {
+            List<String> rowData = new ArrayList<>();
+            for (String tableField : tableFields) {
+                String value = (String) row.get(tableField);
+                rowData.add(value);
+            }
+            maskedData.add(rowData.toArray(new String[0]));
+        }
+        return maskedData;
+    }
+
+    /**
+     * 构造存储脱敏后数据的文件名, adultMaskedData.txt
+     * @param originFileName
+     * @param fileType
+     * @return
+     */
+    public String maskedFileName (String originFileName, String fileType) {
+        return originFileName + SUB_FILE_NAME + "." + fileType;
+    }
+
+    /**
+     * 将脱敏后数据导出到指定类型文件中
+     * @param fileName 构造的存储脱敏后数据的文件名
+     * @param fileType 用户传入的文件类型
+     * @param filePath 存放文件的路径名
+     * @param fields 原始字段值
+     * @param maskedData 脱敏后数据
+     * @return 文件的相对路径(访问url)
+     */
+    public String exportFile(String fileName, String fileType, String filePath, List<String> fields, List<String[]> maskedData) throws IOException {
+        //得到完整路径名
+        filePath += fileName;
+        //检查filePath是否存在，不存在新建，确保可以访问到文件。
+
+        File maskingFile = new File(filePath);
+        if (!maskingFile.exists()) {
+            if(!maskingFile.getParentFile().exists()) {
+                maskingFile.getParentFile().mkdirs();
+            }
+            maskingFile.createNewFile();
+        }
+        //调用对应的工具类中的方法往文件中写结果
+        if (TXT.equals(fileType)) {
+            TxtUtil.writeTxt(filePath, maskedData, fields);
+        } else if (CSV.equals(fileType)) {
+            CsvUtil.writeCsv(filePath, maskedData, fields);
+        } else {
+            //xls or xlsx
+            POIExcelUtil.writeExcel(filePath, maskedData, fields);
+        }
+        //返回文件的访问url
+        return "/files/" + fileName;
+    }
+
+    /**
      * 拿到带后缀名的文件名
      * @param file
      * @return
@@ -140,7 +212,7 @@ public class FileDataManage {
     private String getTableName(String fileName) {
         //构建表,表名唯一
         Random random = new Random();
-        String tableName = fileName + System.currentTimeMillis() + Math.abs(random.nextInt());
+        String tableName ="z" + fileName + System.currentTimeMillis() + Math.abs(random.nextInt());
         log.info("数据库表名 tableName {}", tableName);
         return tableName;
     }

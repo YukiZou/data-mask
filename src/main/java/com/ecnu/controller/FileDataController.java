@@ -1,7 +1,9 @@
 package com.ecnu.controller;
 
+import com.ecnu.dto.ExportFileDTO;
 import com.ecnu.dto.MaskConfigDTO;
 import com.ecnu.dto.MaskConfigsDTO;
+import com.ecnu.dto.QueryMaskStatusDTO;
 import com.ecnu.manage.FileDataManage;
 import com.ecnu.manage.MaskExecuteManage;
 import com.ecnu.manage.MaskMethodManage;
@@ -10,8 +12,7 @@ import com.ecnu.model.User;
 import com.ecnu.model.UserFile;
 import com.ecnu.utils.cookies.CookiesUtil;
 import com.ecnu.utils.enums.StatusEnum;
-import com.ecnu.vo.BaseResponse;
-import com.ecnu.vo.FileUploadVO;
+import com.ecnu.vo.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -145,15 +146,118 @@ public class FileDataController {
             //往表 fields_mask_status(id, user_file_id, selectFields, maskStatus)中插入数据
             maskExecuteManage.addFieldsMaskStatus(userFileRecordId, selectFields);
 
-            //TODO 启动异步线程执行脱敏，在脱敏时，动态改变 fields_mask_status 中对应字段的脱敏状态
-            //TODO 返回状态，让前端转到脱敏执行过程页面，并将 session中的 selectFields和 userFileId 返回到该过程页面
-            // TODO 过程页面定时刷新获取数据库中表 fields_mask_status 记录的状态来查看整个脱敏过程。
+            //启动异步线程执行脱敏，在脱敏时，动态改变 fields_mask_status 中对应字段的脱敏状态
+            //返回状态，让前端转到脱敏执行过程页面，并将 session中的 selectFields和 userFileId 返回到该过程页面
+            //过程页面定时刷新获取数据库中表 fields_mask_status 记录的状态来查看整个脱敏过程。
             List<String[]> rowList = (List<String[]>) session.getAttribute("rowList");
-            log.info("rowList {}", rowList);
+            //调用促发数据脱敏的异步线程的方法。线程完成：数据脱敏，字段脱敏状态改变，脱敏后数据的存储。
+            maskExecuteManage.fileDataMask(maskConfigs, rowList, userFileRecordId, queryUserFile.getTableName(), queryUserFile.getTableFields());
+
             return new BaseResponse(StatusEnum.SUCCESS);
         } catch (Exception e) {
             e.printStackTrace();
             return new BaseResponse(StatusEnum.FAIL);
+        }
+    }
+
+    /**
+     * 前端脱敏过程页面 create 时调用此接口得到 selectFields 和 userFileId
+     * @param request
+     * @return
+     */
+    @RequestMapping(value = "/processing", method = RequestMethod.POST)
+    @ResponseBody
+    public MaskProcessVO dataMaskProcessing(HttpServletRequest request) {
+        try {
+            HttpSession session = request.getSession();
+            int userFileId = (int) session.getAttribute("userFileId");
+            List<String> selectFields = (List<String>) session.getAttribute("selectFields");
+            log.info("userFileId {}, selectFields {}", userFileId, selectFields);
+            return new MaskProcessVO(StatusEnum.SUCCESS, userFileId, selectFields);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new MaskProcessVO(StatusEnum.FAIL);
+        }
+    }
+
+    /**
+     * 查询各个脱敏字段的脱敏状态
+     * @param queryMaskStatusDTO
+     * @return
+     */
+    @RequestMapping(value = "/mask_status", method = RequestMethod.POST)
+    @ResponseBody
+    public MaskStatusVO dataMaskStatus(@RequestBody QueryMaskStatusDTO queryMaskStatusDTO) {
+        try {
+            int userFileId = queryMaskStatusDTO.getUserFileId();
+            log.info("query dataMaskStatus with userFileId {}", userFileId);
+            List<String> maskStatus = maskExecuteManage.queryMaskStatus(userFileId);
+            return new MaskStatusVO(StatusEnum.SUCCESS, maskStatus);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new MaskStatusVO(StatusEnum.FAIL);
+        }
+    }
+
+    /**
+     * 拿到所有的脱敏后数据
+     * @param request
+     * @return
+     */
+    @RequestMapping(value = "/masked_data", method = RequestMethod.POST)
+    @ResponseBody
+    public MaskedDataVO queryMaskedData(HttpServletRequest request) {
+        try {
+            HttpSession session = request.getSession();
+            int userFileId = (int) session.getAttribute("userFileId");
+            UserFile queryUserFile = fileDataManage.findUserFileById(userFileId);
+            // 拿到原始字段list fields
+            String tableName = queryUserFile.getTableName();
+            List<String> tableFields = Arrays.asList(queryUserFile.getTableFields().split(","));
+            List<String> fields = Arrays.asList(queryUserFile.getFields().split(","));
+            List<String[]> maskedData = fileDataManage.queryMaskedData(tableName, tableFields);
+            return new MaskedDataVO(StatusEnum.SUCCESS, userFileId, fields, maskedData);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new MaskedDataVO(StatusEnum.FAIL);
+        }
+    }
+
+    /**
+     * 脱敏后数据导出接口
+     * 先查表得到脱敏后数据，然后写入本地文件中，再将文件返回给前端下载。
+     * @param exportFileDTO
+     * @param request
+     * @return
+     */
+    @RequestMapping(value = "/export_file", method = RequestMethod.POST)
+    @ResponseBody
+    public FileUrlVO queryMaskedData(@RequestBody ExportFileDTO exportFileDTO,
+                                                  HttpServletRequest request) {
+        try {
+            int userFileId = exportFileDTO.getUserFileId();
+            String fileType = exportFileDTO.getFileType();
+            log.info("start export file with userFileId {} and fileType {}", userFileId, fileType);
+            UserFile queryUserFile = fileDataManage.findUserFileById(userFileId);
+            // 表名
+            String tableName = queryUserFile.getTableName();
+            // 原始的文件名（无后缀）
+            String fileName = queryUserFile.getFileName();
+            //构造的文件名，不包含路径，包含文件类型后缀
+            String maskedFileName = fileDataManage.maskedFileName(fileName, fileType);
+            List<String> tableFields = Arrays.asList(queryUserFile.getTableFields().split(","));
+            List<String> fields = Arrays.asList(queryUserFile.getFields().split(","));
+            // 拿到脱敏后数据。
+            List<String[]> maskedData = fileDataManage.queryMaskedData(tableName, tableFields);
+            //构造存放文件的路径
+            String filePath = request.getSession().getServletContext().getRealPath("/files/");
+            //往文件中写数据并拿到这个文件对象的相对路径（访问url）
+            String fileUrl = fileDataManage.exportFile(maskedFileName, fileType, filePath, fields, maskedData);
+            log.info("数据导出完成。{}", filePath);
+            return new FileUrlVO(StatusEnum.SUCCESS, fileUrl, maskedFileName);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new FileUrlVO(StatusEnum.FAIL);
         }
     }
 

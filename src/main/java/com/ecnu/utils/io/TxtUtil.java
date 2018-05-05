@@ -66,29 +66,24 @@ public class TxtUtil {
      * 将数据写入指定文件的工具方法
      * @param fileName 要写的文件全路径
      * @param allRecords 要写入的数据
-     * @param field 要写入的字段名(本来是应该传入原始字段，但是为了简单，传入表字段)
+     * @param fields 要写入的字段名
      * @throws IOException
      */
-    public static void writeTxt(String fileName, List<Map> allRecords, List<String> field) throws IOException {
-        try {
-            BufferedWriter bw = new BufferedWriter(new FileWriter(fileName));
-            for (Map map : allRecords) {
-
-                String line = "";
-                for (String fie : field) {
-                    String value = (String) map.get(fie);
-                    line = line.concat(value);
-                    line = line.concat("\t");
-                }
-                bw.write(line);
-                bw.newLine();
-                bw.flush();
-            }
-            bw.close();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+    public static void writeTxt(String fileName, List<String[]> allRecords, List<String> fields) throws IOException {
+        BufferedWriter bw = new BufferedWriter(new FileWriter(fileName));
+        //先写入标题行
+        String fieldsStr = String.join("\t", fields);
+        bw.write(fieldsStr);
+        bw.newLine();
+        bw.flush();
+        int size = allRecords.size();
+        for (int index = 0; index < size; index++) {
+            String line = String.join("\t", allRecords.get(index));
+            bw.write(line);
+            bw.newLine();
+            bw.flush();
         }
+        bw.close();
     }
 }
 

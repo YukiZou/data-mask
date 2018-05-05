@@ -31,6 +31,10 @@
     </insert>
 
     <select id="getAllRecords" statementType="STATEMENT" resultType="map">
+        SELECT *
+        FROM ${tableName}
+    </select>
+    <!--<select id="getAllRecords" statementType="STATEMENT" resultType="map">
         SELECT
         <trim suffixOverrides=",">
             <foreach collection="tableFields" item="tableField">
@@ -38,5 +42,5 @@
             </foreach>
         </trim>
         FROM ${tableName}
-    </select>
+    </select>-->
 </mapper>

@@ -34,8 +34,9 @@ public interface EntityDao {
     /**
      * 拿到 tableName 指定的表中的所有数据
      * @param tableName 表名
-     * @param tableFields 表字段list
      * @return
      */
-    List<Map> getAllRecords(@Param("tableName") String tableName, @Param("tableFields") List<String> tableFields);
+    //List<Map> getAllRecords(@Param("tableName") String tableName, @Param("tableFields") List<String> tableFields);
+
+    List<Map> getAllRecords(@Param("tableName") String tableName);
 }

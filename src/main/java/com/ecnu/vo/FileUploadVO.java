@@ -23,10 +23,6 @@ public class FileUploadVO implements Serializable {
 
     private List<String[]> subOriginDataList;
 
-    public FileUploadVO() {
-
-    }
-
     public FileUploadVO(StatusEnum statusEnum) {
         this.status = statusEnum.getStatus();
     }

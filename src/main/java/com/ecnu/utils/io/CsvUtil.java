@@ -8,6 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.*;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -23,23 +24,19 @@ public class CsvUtil {
      * 将数据写入指定文件的工具方法
      * @param filePath 要写的文件全路径
      * @param allRecords 要写入的数据
-     * @param field 要写入的字段名(本来是应该传入原始字段，但是为了简单，传入表字段)
+     * @param fields 要写入的字段名
      * @throws IOException
      */
-    public static void writeCsv(String filePath, List<Map> allRecords, List<String> field) throws IOException {
+    public static void writeCsv(String filePath, List<String[]> allRecords, List<String> fields) throws IOException {
         if (checkFilePath(filePath)) {
             // 创建CSV写对象 例如:CsvWriter(文件路径如"D://StemQ.csv"，分隔符，编码格式)
             CsvWriter csvWriter = new CsvWriter(filePath, ',', Charset.forName("UTF-8"));
             //写入表头，参数为String[]类型
-            csvWriter.writeRecord(field.toArray(new String[0]));
-            for (Map map : allRecords) {
-                List<String> content = new ArrayList<String>();
-                //因为Map中顺序和field顺序不一样，所以要通过key值来找对应的value并存入String[]中
-                for (String fie : field) {
-                    String value = (String) map.get(fie);
-                    content.add(value);
-                }
-                csvWriter.writeRecord(content.toArray(new String[0]));
+            csvWriter.writeRecord(fields.toArray(new String[0]));
+            //写内容
+            int size = allRecords.size();
+            for (int index = 0; index < size; index++) {
+                csvWriter.writeRecord(allRecords.get(index));
             }
             csvWriter.close();
         }
@@ -50,7 +47,7 @@ public class CsvUtil {
             InputStream inputStream = file.getInputStream();
             BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
             //存储csv中的原始数据。
-            List<String[]> rowList = new ArrayList<String[]>();
+            List<String[]> rowList = new ArrayList<>();
 
             String line;
             while ((line = bufferedReader.readLine()) != null) {

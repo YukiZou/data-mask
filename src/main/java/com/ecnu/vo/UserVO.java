@@ -13,16 +13,8 @@ public class UserVO implements Serializable{
     private String status;
     private String name;
 
-    public UserVO() {
-
-    }
-
     public UserVO(String status) {
         this.status = status;
-    }
-
-    public UserVO(User user) {
-        this.name = user.getName();
     }
 
     public UserVO(String status, User user) {

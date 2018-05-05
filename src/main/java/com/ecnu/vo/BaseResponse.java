@@ -12,10 +12,6 @@ import java.io.Serializable;
 public class BaseResponse implements Serializable {
     private String status;
 
-    public BaseResponse() {
-
-    }
-
     public BaseResponse(StatusEnum statusEnum) {
         this.status = statusEnum.getStatus();
     }

@@ -28,8 +28,8 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public List<Map> getAllRecords(String tableName, List<String> tableFields) {
-        return entityDao.getAllRecords(tableName, tableFields);
+    public List<Map> getAllRecords(String tableName) {
+        return entityDao.getAllRecords(tableName);
     }
 
 }

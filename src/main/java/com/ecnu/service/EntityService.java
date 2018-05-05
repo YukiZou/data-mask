@@ -28,8 +28,8 @@ public interface EntityService {
     /**
      * 拿到指定表的所有数据。
      * @param tableName
-     * @param tableFields
      * @return
      */
-    List<Map> getAllRecords(String tableName, List<String> tableFields);
+    //List<Map> getAllRecords(String tableName, List<String> tableFields);
+    List<Map> getAllRecords(String tableName);
 }

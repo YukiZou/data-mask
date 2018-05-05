@@ -1,10 +1,8 @@
 package com.ecnu.utils.io;
 
+import com.ecnu.utils.algorithm.RailFenceUtil;
 import org.apache.poi.hssf.usermodel.*;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +28,7 @@ public class POIExcelUtil {
         Workbook workBook = getWorkBook(file);
         // 返回对象,每行作为一个数组，放在集合返回
         //List中存放String[],表示为excel的一行。
-        ArrayList<String[]> rowList = new ArrayList<String[]>();
+        ArrayList<String[]> rowList = new ArrayList<>();
         if (workBook != null) {
             for (int sheetNum = 0; sheetNum < workBook.getNumberOfSheets(); sheetNum++) {
                 // 获得当前sheet工作表
@@ -65,6 +63,70 @@ public class POIExcelUtil {
             }
         }
         return rowList;
+    }
+
+    /**
+     * HSSFWorkbook:是操作Excel2003以前（包括2003）的版本，扩展名是.xls
+     * XSSFWorkbook:是操作Excel 2007/2010之后的版本，扩展名是.xlsx
+     * 创建对应版本的excel文件并往excel写数据。
+     * @param filePath 文件全路径
+     * @param allRecords 数据
+     * @param fields 标题行数据
+     * @throws IOException
+     */
+    public static void writeExcel(String filePath, List<String[]> allRecords, List<String> fields) throws IOException{
+        File excelFile = new File(filePath);
+        // 第一步，创建一个workbook，对应一个Excel文件
+        Workbook wb = getWorkBook(excelFile);
+        // 第二步，在workbook中添加一个sheet,对应Excel文件中的sheet
+        Sheet sheet = wb.createSheet("maskedDataSheet");
+        // 第三步，在sheet中添加表头第0行,注意老版本poi对Excel的行数列数有限制short
+        Row row = sheet.createRow(0);
+        // 第四步，创建单元格，并设置值表头 设置表头居中
+        CellStyle style = wb.createCellStyle();
+        style.setAlignment(HSSFCellStyle.ALIGN_CENTER);
+        // 写入标题行
+        int fieldSize = fields.size();
+        for (int i = 0; i < fieldSize; i++) {
+            Cell cell = row.createCell(i);
+            cell.setCellValue(fields.get(i));
+            cell.setCellStyle(style);
+        }
+        // 写入每行
+        int size = allRecords.size();
+        for (int i = 0; i < size; i++) {
+            String[] rowData = allRecords.get(i);
+            // 新行
+            row = sheet.createRow(i + 1);
+            // 每列
+            int rowSize = rowData.length;
+            for (int j = 0; j < rowSize; j++) {
+                Cell cell = row.createCell(j);
+                cell.setCellValue(rowData[j]);
+                cell.setCellStyle(style);
+            }
+        }
+
+        // 第六步，将文件存到指定位置
+        FileOutputStream fos = new FileOutputStream(filePath);
+        wb.write(fos);
+        fos.close();
+    }
+
+    /**
+     * 获得工作簿对象
+     */
+    private static Workbook getWorkBook(File file) throws IOException {
+        String filename = file.getName();
+        Workbook workbook = null;
+        if (filename.endsWith(XLS)) {
+            // 2003
+            workbook = new HSSFWorkbook();
+        } else if (filename.endsWith(XLSX)) {
+            // 2007
+            workbook = new XSSFWorkbook();
+        }
+        return workbook;
     }
 
     /**
@@ -150,72 +212,5 @@ public class POIExcelUtil {
         }
     }
 
-    /**
-     * HSSFWorkbook:是操作Excel2003以前（包括2003）的版本，扩展名是.xls
-     * excel写操作
-     * @param fileName
-     * @param allRecords
-     * @param field
-     * @param sheetName
-     * @throws IOException
-     */
-    public static void writeXLS(String fileName, List<Map> allRecords,List<String> field,String sheetName)throws IOException{
-        // 第一步，创建一个workbook，对应一个Excel文件
-        HSSFWorkbook wb = new HSSFWorkbook();
-        // 第二步，在workbook中添加一个sheet,对应Excel文件中的sheet
-        if (sheetName.isEmpty()){
-            sheetName = "sheet1";
-        }
-        HSSFSheet sheet = wb.createSheet(sheetName);
-        // 第三步，在sheet中添加表头第0行,注意老版本poi对Excel的行数列数有限制short
-        HSSFRow row = sheet.createRow(0);
-        // 第四步，创建单元格，并设置值表头 设置表头居中
-        HSSFCellStyle style = wb.createCellStyle();
-        style.setAlignment(HSSFCellStyle.ALIGN_CENTER);
-
-        sheet.setColumnWidth(0, 10000);
-        sheet.setColumnWidth(1, 7000);
-        sheet.setColumnWidth(2, 4000);
-//        HSSFCell cell = row.createCell(0);
-        HSSFCell cell;
-
-        // 列名
-        for (int i = 0; i < field.size(); i++) {
-            cell = row.createCell(i);
-            cell.setCellValue(field.get(i));
-            cell.setCellStyle(style);
-        }
-
-        // 写入每行
-        for (int i = 0; i < allRecords.size(); i++) {
-            Map<String, Object> map = allRecords.get(i);
-            // 新行
-            row = sheet.createRow(i + 1);
-            // 每列
-            for (int ii = 0; ii < field.size(); ii++) {
-                cell = row.createCell(ii);
-                String columName = field.get(ii);
-                String value = (String) map.get(columName);
-                cell.setCellValue(value);
-                cell.setCellStyle(style);
-            }
-        }
-
-        // 第六步，将文件存到指定位置
-        FileOutputStream file = null;
-        try
-        {
-            file = new FileOutputStream(fileName);
-            wb.write(file);
-        }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
-        finally {
-            file.close();
-        }
-    }
-    //XSSFWorkbook:是操作Excel2007的版本，扩展名是.xlsx
 }
 
