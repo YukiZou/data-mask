@@ -129,9 +129,8 @@ public class FileDataController {
             //拿到之前生成的userFile record 记录。
             int userFileRecordId = (int) session.getAttribute("userFileId");
             UserFile queryUserFile = fileDataManage.findUserFileById(userFileRecordId);
-            String fieldsStr = queryUserFile.getFields();
             // 拿到解析后的脱敏配置list.
-            List<MaskConfig> maskConfigs = maskExecuteManage.getMaskConfigs(maskConfigDTOs, fieldsStr);
+            List<MaskConfig> maskConfigs = maskExecuteManage.getMaskConfigs(maskConfigDTOs);
             if (maskConfigs == null || maskConfigs.size() == 0) {
                 log.info("无合法的脱敏配置信息");
                 return new BaseResponse(StatusEnum.NO_MASK_CONFIG);
@@ -150,7 +149,7 @@ public class FileDataController {
             //返回状态，让前端转到脱敏执行过程页面，并将 session中的 selectFields和 userFileId 返回到该过程页面
             //过程页面定时刷新获取数据库中表 fields_mask_status 记录的状态来查看整个脱敏过程。
             List<String[]> rowList = (List<String[]>) session.getAttribute("rowList");
-            //调用促发数据脱敏的异步线程的方法。线程完成：数据脱敏，字段脱敏状态改变，脱敏后数据的存储。
+            //调用触发数据脱敏的异步线程的方法。线程完成：数据脱敏，字段脱敏状态改变，脱敏后数据的存储。
             maskExecuteManage.fileDataMask(maskConfigs, rowList, userFileRecordId, queryUserFile.getTableName(), queryUserFile.getTableFields());
 
             return new BaseResponse(StatusEnum.SUCCESS);
@@ -201,15 +200,13 @@ public class FileDataController {
 
     /**
      * 拿到所有的脱敏后数据
-     * @param request
      * @return
      */
     @RequestMapping(value = "/masked_data", method = RequestMethod.POST)
     @ResponseBody
-    public MaskedDataVO queryMaskedData(HttpServletRequest request) {
+    public MaskedDataVO queryMaskedData(@RequestBody QueryMaskStatusDTO queryMaskStatusDTO) {
         try {
-            HttpSession session = request.getSession();
-            int userFileId = (int) session.getAttribute("userFileId");
+            int userFileId = queryMaskStatusDTO.getUserFileId();
             UserFile queryUserFile = fileDataManage.findUserFileById(userFileId);
             // 拿到原始字段list fields
             String tableName = queryUserFile.getTableName();

@@ -8,15 +8,15 @@ import javax.servlet.http.Cookie;
 public class CookiesUtil {
     public static Cookie usernameCookie(String username) {
         Cookie cookie = new Cookie("username", username);
-        // 10 min 后过期
-        cookie.setMaxAge(600);
+        // 20 min 后过期
+        cookie.setMaxAge(1200);
         cookie.setPath("/");
         return cookie;
     }
 
     public static Cookie loginStatusCookie(String loginStatus) {
         Cookie cookie = new Cookie("loginStatus", loginStatus);
-        cookie.setMaxAge(600);
+        cookie.setMaxAge(1200);
         cookie.setPath("/");
         return cookie;
     }

@@ -1,33 +1,51 @@
 package com.ecnu.manage;
 
+import com.alibaba.fastjson.JSON;
 import com.ecnu.dto.MaskConfigDTO;
-import com.ecnu.model.FieldsMaskStatus;
-import com.ecnu.model.MaskConfig;
+import com.ecnu.model.*;
 import com.ecnu.service.EntityService;
 import com.ecnu.service.FieldsMaskStatusService;
+import com.ecnu.service.StreamMaskStatusService;
+import com.ecnu.service.UserStreamService;
 import com.ecnu.service.impl.EncryptionServiceImpl;
 import com.ecnu.utils.enums.MaskMethodEnum;
 import com.ecnu.utils.enums.MaskStatusEnum;
+import com.ecnu.utils.enums.StatusEnum;
+import jdk.net.SocketFlow;
+import org.apache.commons.lang.ObjectUtils;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.KafkaException;
+import org.apache.kafka.common.PartitionInfo;
+import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.metrics.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
+import scala.util.parsing.combinator.testing.Str;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.security.NoSuchAlgorithmException;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * 解析用户自定义的脱敏配置
+ * 启动本文数据的脱敏执行线程
+ * 启动监听 kafka topic的异步线程
  * @author zou yuanyuan
  */
 @Service
 public class MaskExecuteManage {
     private static Logger log = LoggerFactory.getLogger(MaskMethodManage.class);
     private final static ExecutorService EXECUTOR_SERVICE = Executors.newCachedThreadPool();
+    public static volatile boolean exit = false;
+    //TODO:为了测试暂时改成10条，正式的要处理比10条多的数据
+    private final static int minBatchSize = 10;
     /**
      * 匹配正整数和正浮点数的正则表达式。
      */
@@ -37,19 +55,29 @@ public class MaskExecuteManage {
     private EntityService entityService;
 
     @Autowired
+    private MongoTemplate mongoTemplate;
+
+    @Autowired
+    private UserStreamService userStreamService;
+
+    @Autowired
     private FieldsMaskStatusService fieldsMaskStatusService;
+
+    @Autowired
+    private StreamMaskStatusService streamMaskStatusService;
 
     @Autowired
     private EncryptionServiceImpl encryptionService;
 
     /**
-     * 将前端传过来的脱敏配置剔除不合法配置得到最终的可用的List<MaskConfig>
+     * 用户自定义的脱敏配置有效性验证函数
+     * 文件数据的脱敏配置验证：调用此方法完成验证
+     * 流数据的脱敏配置验证：除了调用此方法验证外，还需再根据实际数据的字段去验证selectFields是否匹配。
      * @param maskConfigDTOs 前端传过来的脱敏配置
      * @return
      */
-    public List<MaskConfig> getMaskConfigs(List<MaskConfigDTO> maskConfigDTOs, String fieldsStr) {
+    public List<MaskConfig> getMaskConfigs(List<MaskConfigDTO> maskConfigDTOs) {
         List<MaskConfig> maskConfigs = new ArrayList<>();
-        List<String> fields = Arrays.asList(fieldsStr.split(","));
         for (MaskConfigDTO maskConfigDTO : maskConfigDTOs) {
             String selectField = maskConfigDTO.getSelectField();
             String selectMethod = maskConfigDTO.getSelectMethod();
@@ -57,7 +85,7 @@ public class MaskExecuteManage {
             double parameter = 0;
             //判断选择的脱敏规则、脱敏字段的有效性
             Boolean isNull = selectMethod == null || "".equals(selectMethod) || selectField == null || "".equals(selectField);
-            if (isNull || !fields.contains(selectField)) {
+            if (isNull) {
                 continue;
             }
             //将selectMethod转化成Enum类型的对象
@@ -193,6 +221,216 @@ public class MaskExecuteManage {
         //将 callable 接口放入异步线程中，并让线程池执行该线程。
         FutureTask<Boolean> fileDataMasking = new FutureTask<>(callable);
         EXECUTOR_SERVICE.submit(fileDataMasking);
+    }
+
+    /**
+     * 根据参数配置 kafka consumer 属性
+     * @param brokers
+     * @param group
+     * @return
+     */
+    public Properties consumerConfig(String brokers, String group) {
+        Properties properties = new Properties();
+        //指向Kafka集群的IP地址，以逗号分隔。
+        properties.put("bootstrap.servers", brokers);
+        //Consumer分组ID
+        properties.put("group.id", group);
+        //自动提交偏移量
+        properties.put("enable.auto.commit", "false");
+        properties.put("auto.commit.interval.ms", "1000");
+        properties.put("session.timeout.ms", "30000");
+        // 反序列化。Consumer把来自Kafka集群的二进制消息反序列化为指定的类型。
+        // 因本例中的Producer使用的是String类型，所以调用StringDeserializer来反序列化
+        properties.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
+        properties.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
+        return properties;
+    }
+
+    /**
+     * 流数据消费、脱敏处理、存储方法
+     * @param properties
+     * @param topic
+     * @param userStreamId
+     * @param maskConfigs
+     * @return
+     */
+    public StatusEnum streamDataMask(Properties properties, String topic, int userStreamId, List<MaskConfig> maskConfigs){
+        try {
+            //这个语句如果配置不对，会报错,不会进行后续操作。将报错传给前端。
+            KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties);
+            Map<String, List<PartitionInfo>> allTopics = consumer.listTopics();
+            // 拿到当前 broker下的所有已存在的 topic,并判断用户输入的topic是否在其中。
+            Set topicsSet = allTopics.keySet();
+            if (!topicsSet.contains(topic)) {
+                return StatusEnum.NO_TOPIC;
+            }
+            // 拿到当前 topic 的 partition 分区信息
+            List<PartitionInfo> selectTopic = allTopics.get(topic);
+            int largePartition = selectTopic.size();
+            log.info("partition个数： {}", largePartition);
+            // 根据分区信息新建 stream_mask_status 记录并将记录的 id 存到数组中。
+            int[] streamMaskStatusIds = new int[largePartition];
+            for (int index = 0; index < largePartition; index++) {
+                streamMaskStatusIds[index] = streamMaskStatusService.addStreamMaskStatus(userStreamId, index);
+            }
+            //拿到当前userStreamId 对应UserStream下的 collectionName
+            UserStream userStream = userStreamService.queryUserStreamById(userStreamId);
+            String collectionName = userStream.getCollectionName();
+            //执行到这步，表明完成对用户的consumer配置的验证。对脱敏方法setup
+            encryptionService.setup();
+
+            Callable<Boolean> callable = () -> {
+                String[] topics = {topic};
+                consumer.subscribe(Arrays.asList(topics));
+                List<ConsumerRecord<String, String>> buffer = new ArrayList<>();
+                Boolean firstMsg = true;
+                String fieldsStr;
+                while (!exit) {
+                    // Consumer调用poll方法来轮循Kafka集群的消息, 如果kafka集群里没有消息，则最多等待100ms，没有消息这轮循环就结
+                    ConsumerRecords<String, String> records = consumer.poll(100);
+                    for (ConsumerRecord<String, String> record : records) {
+                        // print the offset,key and value for the consumer records.
+                        buffer.add(record);
+                    }
+                    log.info("buffer 大小 {}", buffer.size());
+
+                    //一次消费到的消息达到批量处理的最小要求，则执行脱敏操作和存储操作，同步确认 offset
+                    if (buffer.size() >= minBatchSize) {
+                        //对buffer中的数据执行脱敏操作和存储操作。（这边要不要再起一个异步线程执行脱敏操作和存储操作）
+                        //TODO: 如果同步执行，确保了数据不会丢失；如果异步执行，执行速率会很快，脱敏操作不影响消费操作。
+                        // 拿到 topic中的各字段名并存储，同时二次验证脱敏配置的有效性。
+                        if (firstMsg) {
+                            String firstRow = buffer.get(0).value();
+                            Map firstMap = JSON.parseObject(firstRow);
+                            Set fieldsSet = firstMap.keySet();
+                            fieldsStr = String.join(",", fieldsSet);
+                            // 将 fieldsStr 存入 userStreamId 指定的 user_stream 记录中。
+                            userStreamService.updateUserStream(userStreamId, fieldsStr);
+                            // 用 fields验证脱敏配置中的字段是否正确。
+                            for (MaskConfig maskConfig : maskConfigs) {
+                                String selectField =maskConfig.getSelectField();
+                                if (!fieldsSet.contains(selectField)) {
+                                    maskConfigs.remove(maskConfig);
+                                }
+                            }
+                            // 正确
+                            log.info("配置筛选正确性验证 {}", maskConfigs);
+                            firstMsg = false;
+                        }
+                        //ConsumerRecord(topic = testInfo, partition = 0, offset = 2, CreateTime = 1525771177900,
+                        // serialized key size = -1, serialized value size = 46, headers = RecordHeaders(headers = [], isReadOnly = false),
+                        // key = null, value = {"address":"Shanghai1","name":"Tom1","age":23})
+                        // 按 partition 分区对数据进行脱敏处理和存储脱敏状态
+                        // 1. 根据partition数声明数据和offset存储的数据结构。
+                        List[] partitionData = new List[largePartition];
+                        OffsetRecord[] partitionOffset = new OffsetRecord[largePartition];
+                        for (int i = 0; i < largePartition; i++) {
+                            List<String> data = new ArrayList<>();
+                            partitionData[i] = data;
+                            OffsetRecord offsetRecord = new OffsetRecord();
+                            partitionOffset[i] = offsetRecord;
+                        }
+                        // 2. 按分区整理 records中的value和 offset.
+                        int bufferSize = buffer.size();
+                        for (int bs = 0; bs < bufferSize; bs++) {
+                            ConsumerRecord<String, String> consumerRecord = buffer.get(bs);
+                            int partition = consumerRecord.partition();
+                            long offset = consumerRecord.offset();
+                            partitionData[partition].add(consumerRecord.value());
+                            OffsetRecord offsetRecord = partitionOffset[partition];
+                            if (bs == 0) {
+                                offsetRecord.setStartOffset(offset);
+                                offsetRecord.setEndOffset(offset);
+                            }
+                            if (offset > offsetRecord.getEndOffset()) {
+                                offsetRecord.setEndOffset(offset);
+                            }
+                            if (offset < offsetRecord.getStartOffset()) {
+                                offsetRecord.setStartOffset(offset);
+                            }
+                        }
+                        // 4.更新 stream_mask_status表对应记录的 startOffset 和 endOffset。
+                        for (int index = 0; index < largePartition; index++) {
+                            streamMaskStatusService.updateStreamMaskStatus(streamMaskStatusIds[index], partitionOffset[index].getStartOffset(), partitionOffset[index].getEndOffset());
+                        }
+
+                        // 5. 对流数据分区执行脱敏操作。index 表示当前分区号
+                        for (int index = 0; index < largePartition; index++) {
+                            // 5.1 将指定分区的数据变成List<Map>结构存储
+                            List<Map> originData = new ArrayList<>();
+                            List<String> partitionOriginData = partitionData[index];
+                            for (String rowJson : partitionOriginData) {
+                                Map map = JSON.parseObject(rowJson);
+                                originData.add(map);
+                            }
+                            // 5.2 遍历maskConfigs 对每个分区内的数据所选字段执行脱敏操作
+                            for (MaskConfig maskConfig : maskConfigs) {
+                                String selectField = maskConfig.getSelectField();
+                                //拿到需要脱敏的列数据 originCol
+                                List<String> originCol = new ArrayList<>();
+                                for (Map row : originData) {
+                                    if (row.containsKey(selectField)) {
+                                        Object object = row.get(selectField);
+                                        originCol.add(ObjectUtils.toString(object));
+                                    }
+                                }
+                                // 执行脱敏, maskedCol正确
+                                List<String> maskedCol = mask(originCol, maskConfig.getSelectMethod(), maskConfig.getParameter());
+                                log.info("脱敏后列数据 {}", maskedCol);
+                                //将脱敏后字段再存入原数据结构map中,替换该字段脱敏前的原始值
+                                int size = originData.size();
+                                for (int j = 0; j < size; j++) {
+                                    Map map = originData.get(j);
+                                    if (map.containsKey(selectField)) {
+                                        String maskedCell = maskedCol.get(j);
+                                        map.put(selectField, maskedCell);
+                                    }
+                                }
+                            }
+                            //该分区的脱敏操作结束，目前originData里面存储的是脱敏后的分区数据
+                            // 将脱敏后分区数据加上分区号存入 mongoDB指定集合中
+                            for (Map map : originData) {
+                                map.put("partition", index);
+                                mongoTemplate.insert(map, collectionName);
+                            }
+                        }
+                        //标识当前消费到的所有数据脱敏完成。手动提交 offset。
+                        consumer.commitSync();
+                        buffer.clear();
+                    }
+                }
+                log.info("exist consumer listener");
+                return null;
+            };
+            //将 callable 接口放入异步线程中，并让线程池执行该线程。
+            FutureTask<Boolean> streamDataMasking = new FutureTask<>(callable);
+            EXECUTOR_SERVICE.submit(streamDataMasking);
+            return StatusEnum.SUCCESS;
+        } catch (KafkaException ke) {
+            log.info(ke.getMessage());
+            return StatusEnum.PROPERTIES_ERROR;
+        } catch (NoSuchAlgorithmException e) {
+            log.info(e.getMessage());
+            return StatusEnum.ENCRYPTION_ERROR;
+        }
+    }
+
+    /**
+     * 根据 userStreamId 查询对应的partition 的 offsets
+     * @param userStreamId
+     * @return
+     */
+    public List<StreamMaskStatus> queryStreamMaskStatus(int userStreamId) {
+        return streamMaskStatusService.findStreamMaskStatusByUserStreamId(userStreamId);
+    }
+
+    /**
+     * 停止 or 可以重新启动消费者线程。
+     * @param stop true 退出 false 可以重新启动新的消费者线程
+     */
+    public void stopListener(Boolean stop) {
+        exit = stop;
+        log.info("启动线程前 exit 值 {}", exit);
     }
 
     /**

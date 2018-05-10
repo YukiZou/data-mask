@@ -90,9 +90,6 @@
     <tx:annotation-driven transaction-manager="manager" />
 
     <!--ssm 集成 mongodb-->
-    <!--<import resource="classpath:spring/spring-mongodb.xml"/>
-
-    <import resource="classpath:spring/spring-producer.xml"/>-->
-    <!--<import resource="classpath:spring/spring-consumer.xml"/>-->
+    <import resource="classpath:spring/spring-mongodb.xml"/>
 
 </beans>

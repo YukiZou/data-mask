@@ -12,7 +12,10 @@ public enum StatusEnum {
     PASSWORD_ERROR("passwordError"),
     DUPLICATE__FAIL("duplicateFail"),
     INPUT_FAIL("inputFail"),
-    NO_MASK_CONFIG("noMaskConfig");
+    NO_MASK_CONFIG("noMaskConfig"),
+    ENCRYPTION_ERROR("encryptionError"),
+    PROPERTIES_ERROR("propertiesError"),
+    NO_TOPIC("noTopic");
 
 
     private String status;

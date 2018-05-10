@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:mongo="http://www.springframework.org/schema/data/mongo"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+            http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+            http://www.springframework.org/schema/context
+            http://www.springframework.org/schema/context/spring-context-4.3.xsd
+            http://www.springframework.org/schema/data/mongo
+            http://www.springframework.org/schema/data/mongo/spring-mongo.xsd">
+
+    <!-- 读取属性文件 -->
+    <!--<context:property-placeholder location="classpath:mongodb.properties" ignore-unresolvable="true"/>-->
+
+    <!-- 启用注解支持 -->
+    <context:annotation-config />
+
+    <!--
+        MongoDB配置部分
+        1.mongo-client：连接配置
+        2.db-factory：相当于sessionFactory
+        3.mongoTemplate：与数据库接口交互的主要实现类
+    -->
+    <!-- 1.7版本+不支持mongo,支持mongo-client,options为client-options -->
+    <!-- Usage of 'UserCredentials' with 'MongoClient' is no longer supported -->
+    <!-- 配置mongodb连接池 ,创建mongoClient实例-->
+    <!--credentials="mongodb://${mongo.user}:${mongo.pwd}@${mongo.host}:${mongo.port}/${mongo
+    .defaultDbName}"为什么不起作用
+    如果需要验证,mongo-client需要加这句: credentials="${mongo.user}:${mongo.pwd}@${mongo.defaultDbName}"
+    -->
+    <mongo:mongo-client id="mongoClient"  host="127.0.0.1" port="27017">
+        <!--<mongo:client-options
+                connections-per-host="10"
+                min-connections-per-host="5"
+                threads-allowed-to-block-for-connection-multiplier="5"
+                connect-timeout="10000"
+                max-wait-time="120000"
+                socket-keep-alive="true"
+                socket-timeout="0"
+                description="wh test mongodb database"
+                max-connection-idle-time="1500"
+                max-connection-life-time="1000"
+                heartbeat-socket-timeout="1000"
+                heartbeat-connect-timeout="1500"
+                min-heartbeat-frequency="5"
+                heartbeat-frequency="10"
+        />-->
+    </mongo:mongo-client>
+
+    <mongo:db-factory id="mongoDbFactory" dbname="datamaskdb" mongo-ref="mongoClient"/>
+
+
+    <!-- 2.Spring提供的mongodb操作模板-->
+    <bean id="mongoTemplate" class="org.springframework.data.mongodb.core.MongoTemplate">
+        <constructor-arg ref="mongoDbFactory"/>
+    </bean>
+
+</beans>

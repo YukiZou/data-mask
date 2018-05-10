@@ -95,12 +95,12 @@ public class FileDataManage {
         String tableFieldsStr = fieldsValue(tableFields);
         String fieldsStr = fieldsValue(fields);
         //构建数据库表名,要保证唯一性，如果不唯一，再次生成新的存储脱敏后数据的表名
-        String tableName = getTableName(fileName);
-        UserFile queryUserFile = userFileService.queryUserFiles(tableName);
-        while (queryUserFile != null) {
+        String tableName;
+        UserFile queryUserFile;
+        do{
             tableName = getTableName(fileName);
             queryUserFile = userFileService.queryUserFiles(tableName);
-        }
+        }while (queryUserFile != null);
         int userFileId = userFileService.addUserFile(userId, tableName, fileName, tableFieldsStr, fieldsStr);
         return userFileId;
     }
@@ -113,6 +113,15 @@ public class FileDataManage {
     public UserFile findUserFileById (int userFileId) {
         UserFile userFile = userFileService.queryUserFileById(userFileId);
         return userFile;
+    }
+
+    /**
+     * 根据 userId 找到对应的所有记录
+     * @param userId login user
+     * @return
+     */
+    public List<UserFile> queryAllUserFiles(int userId) {
+        return userFileService.queryUserFiles(userId);
     }
 
     /**
