@@ -35,11 +35,11 @@ public class PaillierUtil {
      * @return
      */
     public static BigInteger encryption(BigInteger m) {
-        logger.info("start encrypt data.");
+        //logger.info("start encrypt data.");
         //随机生成符合条件的r值， 0<r<n
         int bitLen = n.bitLength();
         BigInteger r = new BigInteger(bitLen - 1, new Random());
-        logger.info("r: {}", r );
+        //logger.info("r: {}", r );
         if (r.compareTo(n) >= 0 || r.signum() <= 0) {
             logger.info("r {} is not good.", r);
             System.exit(1);

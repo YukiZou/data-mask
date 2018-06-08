@@ -1,5 +1,6 @@
 package com.ecnu.controller;
 
+import com.alibaba.fastjson.JSON;
 import com.ecnu.dto.*;
 import com.ecnu.manage.FileDataManage;
 import com.ecnu.manage.MaskExecuteManage;
@@ -15,6 +16,7 @@ import com.ecnu.vo.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,10 +27,7 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 
 /**
  * 流数据脱敏处理
@@ -51,6 +50,9 @@ public class StreamDataController {
 
     @Autowired
     private FileDataManage fileDataManage;
+
+    @Autowired
+    private KafkaTemplate kafkaTemplate;
 
     /**
      * 查询系统提供的脱敏方法列表
@@ -327,6 +329,44 @@ public class StreamDataController {
             e.printStackTrace();
             return new FileUrlVO(StatusEnum.FAIL);
         }
+    }
+
+    //todo:改写此写kafka消息的接口
+
+    /**
+     * test
+     * 往参数指定的kafka topic中写入{name, age, address} json 格式的数据。
+     * @param kafkaTopicDTO
+     * @return
+     * @throws InterruptedException
+     */
+    @RequestMapping(value = "/sendMsg", method = RequestMethod.POST)
+    @ResponseBody
+    public String sendMsg(@RequestBody KafkaTopicDTO kafkaTopicDTO) throws InterruptedException {
+        String topic = kafkaTopicDTO.getTopic();
+        Random r = new Random();
+        int maxRecord = Math.abs(r.nextInt(50));
+        for (int index = 1; index <= maxRecord; index++) {
+            Map map = new HashMap();
+            int age = Math.abs(r.nextInt(100));
+            map.put("name", "Tom" + age);
+            map.put("age", age);
+            map.put("address", "Shanghai"+ age);
+            kafkaTemplate.send("testInfo", JSON.toJSONString(map));
+            log.info("send json record : {}", JSON.toJSONString(map));
+        }
+        /*Random r = new Random();
+        int cnt = Math.abs(r.nextInt(50));
+        List<Adult> adultList = adultMongoService.findAll();
+        for (int index = 0; index < 100;) {
+            for (int j = index; j < (index + cnt); j++) {
+                kafkaTemplate.send("default", JSON.toJSONString(adultList.get(j)));
+            }
+            Thread.sleep(3000);
+            index += cnt;
+            cnt = Math.abs(r.nextInt(50));
+        }*/
+        return "success";
     }
 
 }

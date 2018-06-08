@@ -22,7 +22,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 /**
- * 用户登录、注册
+ * 用户登录、注册管理
  * @author zou yuanyuan
  */
 @Controller

@@ -273,6 +273,15 @@ public class MaskExecuteManage {
             for (int index = 0; index < largePartition; index++) {
                 streamMaskStatusIds[index] = streamMaskStatusService.addStreamMaskStatus(userStreamId, index);
             }
+            // 根据partition数声明数据和offset存储的数据结构。
+            List[] partitionData = new List[largePartition];
+            OffsetRecord[] partitionOffset = new OffsetRecord[largePartition];
+            for (int i = 0; i < largePartition; i++) {
+                List<String> data = new ArrayList<>();
+                partitionData[i] = data;
+                OffsetRecord offsetRecord = new OffsetRecord();
+                partitionOffset[i] = offsetRecord;
+            }
             //拿到当前userStreamId 对应UserStream下的 collectionName
             UserStream userStream = userStreamService.queryUserStreamById(userStreamId);
             String collectionName = userStream.getCollectionName();
@@ -321,16 +330,8 @@ public class MaskExecuteManage {
                         // serialized key size = -1, serialized value size = 46, headers = RecordHeaders(headers = [], isReadOnly = false),
                         // key = null, value = {"address":"Shanghai1","name":"Tom1","age":23})
                         // 按 partition 分区对数据进行脱敏处理和存储脱敏状态
-                        // 1. 根据partition数声明数据和offset存储的数据结构。
-                        List[] partitionData = new List[largePartition];
-                        OffsetRecord[] partitionOffset = new OffsetRecord[largePartition];
-                        for (int i = 0; i < largePartition; i++) {
-                            List<String> data = new ArrayList<>();
-                            partitionData[i] = data;
-                            OffsetRecord offsetRecord = new OffsetRecord();
-                            partitionOffset[i] = offsetRecord;
-                        }
-                        // 2. 按分区整理 records中的value和 offset.
+
+                        // 1. 按分区整理 records中的value和 offset.
                         int bufferSize = buffer.size();
                         for (int bs = 0; bs < bufferSize; bs++) {
                             ConsumerRecord<String, String> consumerRecord = buffer.get(bs);
@@ -349,21 +350,21 @@ public class MaskExecuteManage {
                                 offsetRecord.setStartOffset(offset);
                             }
                         }
-                        // 4.更新 stream_mask_status表对应记录的 startOffset 和 endOffset。
+                        // 2.更新 stream_mask_status表对应记录的 startOffset 和 endOffset。
                         for (int index = 0; index < largePartition; index++) {
                             streamMaskStatusService.updateStreamMaskStatus(streamMaskStatusIds[index], partitionOffset[index].getStartOffset(), partitionOffset[index].getEndOffset());
                         }
 
-                        // 5. 对流数据分区执行脱敏操作。index 表示当前分区号
+                        // 3. 对流数据分区执行脱敏操作。index 表示当前分区号
                         for (int index = 0; index < largePartition; index++) {
-                            // 5.1 将指定分区的数据变成List<Map>结构存储
+                            // 3.1 将指定分区的数据变成List<Map>结构存储
                             List<Map> originData = new ArrayList<>();
                             List<String> partitionOriginData = partitionData[index];
                             for (String rowJson : partitionOriginData) {
                                 Map map = JSON.parseObject(rowJson);
                                 originData.add(map);
                             }
-                            // 5.2 遍历maskConfigs 对每个分区内的数据所选字段执行脱敏操作
+                            // 3.2 遍历maskConfigs 对每个分区内的数据所选字段执行脱敏操作
                             for (MaskConfig maskConfig : maskConfigs) {
                                 String selectField = maskConfig.getSelectField();
                                 //拿到需要脱敏的列数据 originCol
@@ -388,7 +389,7 @@ public class MaskExecuteManage {
                                 }
                             }
                             //该分区的脱敏操作结束，目前originData里面存储的是脱敏后的分区数据
-                            // 将脱敏后分区数据加上分区号存入 mongoDB指定集合中
+                            // 4 将脱敏后分区数据加上分区号存入 mongoDB指定集合中
                             for (Map map : originData) {
                                 map.put("partition", index);
                                 mongoTemplate.insert(map, collectionName);
@@ -479,15 +480,24 @@ public class MaskExecuteManage {
         switch (method) {
             case CAESAR_ENCRYPTION:
                 //凯撒置换，不能针对单个数据操作。有偏移量
+                long currentTime = System.nanoTime();
                 maskedData = encryptionService.executeCaesar(originData, (int)parameter);
+                long after = System.nanoTime();
+                log.info("凯撒置换耗时：{}", after - currentTime);
                 break;
             case RAIL_FENCE_ENCRYPTION:
                 //栅栏置换，不能针对单个数据操作。有偏移量
+                currentTime = System.nanoTime();
                 maskedData = encryptionService.executeRailFence(originData, (int)parameter);
+                after = System.nanoTime();
+                log.info("栅栏置换耗时：{}", after - currentTime);
                 break;
             case MD5_ENCRYPTION:
                 //MD5加密脱敏，会把所有类型的输入都变成定长的String输出。
+                currentTime = System.nanoTime();
                 maskedData = encryptionService.executeMD5(originData);
+                after = System.nanoTime();
+                log.info("MD5耗时：{}", after - currentTime);
                 break;
             case EPSILON_DIFFERENTIAL_PRIVACY:
                 //差分隐私，只能处理数字类型的输入input: double; output: double，有偏移量
@@ -507,7 +517,10 @@ public class MaskExecuteManage {
                 break;
             case HOMOMORPHISM_ENCRYPTION:
                 //用Paillier算法实现的同态加密，只能处理int/long/只有数字组成的大整数 这些输入
+                currentTime = System.nanoTime();
                 maskedData = encryptionService.executePaillier(originData);
+                after = System.nanoTime();
+                log.info("同态加密耗时：{}", after - currentTime);
                 break;
             case ANONYMITY_ENCRYPTION:
                 //k-匿名算法
