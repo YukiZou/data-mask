@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ecnu.dao.UserStreamDao">
+
+    <resultMap id="userStreamResultMap" type="com.ecnu.model.UserStream">
+        <id  column="id" property="id" />
+        <result column="user_id" property="userId" />
+        <result column="collection_name" property="collectionName" />
+        <result column="fields" property="fields" />
+        <result column="topic" property="topic" />
+    </resultMap>
+
+    <insert id="insertUserStream" parameterType="com.ecnu.model.UserStream" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_stream(user_id, collection_name, topic)
+        VALUES (#{userId}, #{collectionName}, #{topic})
+    </insert>
+
+    <update id="updateUserStream" parameterType="com.ecnu.model.UserStream">
+        UPDATE user_stream
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="fields!=null and fields!=''">
+                fields=#{fields},
+            </if>
+            <if test="topic!=null and topic!=''">
+                topic=#{topic},
+            </if>
+        </trim>
+        WHERE id=#{id}
+    </update>
+
+    <!-- 模糊查找 -->
+    <select id="findUserStreams" parameterType="com.ecnu.model.UserStream" resultMap="userStreamResultMap">
+        SELECT *
+        FROM user_stream
+        <where>
+            <if test="id!=null and id>0">
+                id=#{id}
+            </if>
+            <if test="userId!=null and userId>0">
+                AND user_id=#{userId}
+            </if>
+            <if test="collectionName!=null and collectionName!=''">
+                AND collection_name LIKE #{collectionName}
+            </if>
+            <if test="fields!=null and fields!=''">
+                AND fields LIKE #{fields}
+            </if>
+            <if test="topic!=null and topic!=''">
+                AND topic LIKE #{topic}
+            </if>
+        </where>
+    </select>
+
+</mapper>

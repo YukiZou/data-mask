@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ecnu.dao.StreamMaskStatusDao">
+
+    <resultMap id="streamMaskStatusMap" type="com.ecnu.model.StreamMaskStatus">
+        <id  column="id" property="id" />
+        <result column="user_stream_id" property="userStreamId" />
+        <result column="partition_value" property="partition" />
+        <result column="start_offset" property="startOffset" />
+        <result column="end_offset" property="endOffset" />
+    </resultMap>
+
+    <insert id="insertRecord" parameterType="com.ecnu.model.StreamMaskStatus" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO stream_mask_status(user_stream_id, partition_value)
+        VALUES (#{userStreamId}, #{partition})
+    </insert>
+
+    <update id="updateRecord" parameterType="com.ecnu.model.StreamMaskStatus">
+        UPDATE stream_mask_status
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="startOffset!=null and startOffset>0">
+                start_offset=#{startOffset},
+            </if>
+            <if test="endOffset!=null and endOffset>0">
+                end_offset=#{endOffset},
+            </if>
+        </trim>
+        WHERE id=#{id}
+    </update>
+
+    <!-- 模糊查找 -->
+    <select id="findStreamMaskStatus" parameterType="com.ecnu.model.StreamMaskStatus" resultMap="streamMaskStatusMap">
+        SELECT *
+        FROM stream_mask_status
+        <where>
+            <if test="id!=null and id>0">
+                id=#{id}
+            </if>
+            <if test="userStreamId!=null and userStreamId>0">
+                AND user_stream_id=#{userStreamId}
+            </if>
+            <if test="partition!=null and partition>0">
+                AND partition_value=#{partition}
+            </if>
+        </where>
+    </select>
+
+</mapper>

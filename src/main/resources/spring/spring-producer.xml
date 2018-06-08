@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+         http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+    <!--<context:property-placeholder location="classpath:kafka.properties"/>-->
+    <!-- 定义producer的参数 -->
+    <bean id="producerProperties" class="java.util.HashMap">
+        <constructor-arg>
+            <map>
+                <entry key="bootstrap.servers" value="127.0.0.1:9092" />
+                <entry key="retries" value="10" />
+                <entry key="batch.size" value="16384" />
+                <entry key="linger.ms" value="1" />
+                <entry key="buffer.memory" value="33554432" />
+                <entry key="acks" value="all" />
+                <entry key="key.serializer"
+                       value="org.apache.kafka.common.serialization.StringSerializer" />
+                <entry key="value.serializer"
+                       value="org.apache.kafka.common.serialization.StringSerializer" />
+            </map>
+        </constructor-arg>
+    </bean>
+
+    <!-- 创建kafkatemplate需要使用的producerfactory bean -->
+    <bean id="producerFactory"
+          class="org.springframework.kafka.core.DefaultKafkaProducerFactory">
+        <constructor-arg>
+            <ref bean="producerProperties" />
+        </constructor-arg>
+    </bean>
+
+    <!-- 创建kafkatemplate bean，使用的时候，只需要注入这个bean，即可使用template的send消息方法 -->
+    <bean id="kafkaTemplate" class="org.springframework.kafka.core.KafkaTemplate">
+        <constructor-arg ref="producerFactory" />
+        <constructor-arg name="autoFlush" value="true" />
+        <property name="defaultTopic" value="default" />
+    </bean>
+
+    <!--producerProperties：设置生产者公产需要的配置
+    producerFactory：定义了生产者工厂构造方法
+    kafkaTemplate：定义了使用producerFactory和是否自动刷新，2个参数来构造kafka生产者模板类。-->
+</beans>
