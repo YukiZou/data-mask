@@ -335,38 +335,28 @@ public class StreamDataController {
 
     /**
      * test
-     * 往参数指定的kafka topic中写入{name, age, address} json 格式的数据。
+     * kafka 流数据脱敏时，需要先往指定的topic中写入数据，调用这个接口可以往
+     * 参数 kafkaTopicDTO 指定的kafka topic中写入{name, age, address} json 格式的数据。
      * @param kafkaTopicDTO
      * @return
      * @throws InterruptedException
      */
-    @RequestMapping(value = "/sendMsg", method = RequestMethod.POST)
+    @RequestMapping(value = "/send_msg", method = RequestMethod.POST)
     @ResponseBody
-    public String sendMsg(@RequestBody KafkaTopicDTO kafkaTopicDTO) throws InterruptedException {
+    public BaseResponse sendMsg(@RequestBody KafkaTopicDTO kafkaTopicDTO) throws InterruptedException {
         String topic = kafkaTopicDTO.getTopic();
         Random r = new Random();
         int maxRecord = Math.abs(r.nextInt(50));
         for (int index = 1; index <= maxRecord; index++) {
-            Map map = new HashMap();
+            Map map = new HashMap(3);
             int age = Math.abs(r.nextInt(100));
             map.put("name", "Tom" + age);
             map.put("age", age);
             map.put("address", "Shanghai"+ age);
-            kafkaTemplate.send("testInfo", JSON.toJSONString(map));
+            kafkaTemplate.send(topic, JSON.toJSONString(map));
             log.info("send json record : {}", JSON.toJSONString(map));
         }
-        /*Random r = new Random();
-        int cnt = Math.abs(r.nextInt(50));
-        List<Adult> adultList = adultMongoService.findAll();
-        for (int index = 0; index < 100;) {
-            for (int j = index; j < (index + cnt); j++) {
-                kafkaTemplate.send("default", JSON.toJSONString(adultList.get(j)));
-            }
-            Thread.sleep(3000);
-            index += cnt;
-            cnt = Math.abs(r.nextInt(50));
-        }*/
-        return "success";
+        return new BaseResponse(StatusEnum.SUCCESS);
     }
 
 }
